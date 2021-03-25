@@ -2,8 +2,11 @@ package main
 
 import (
 	"encoding/hex"
+	"errors"
 	"fmt"
+	"io"
 	"log"
+	"net/http"
 	"os"
 	"path/filepath"
 	"strings"
@@ -55,22 +58,45 @@ func (p *printer) Walk(name exif.FieldName, tag *tiff.Tag) error {
 	return nil
 }
 
-func printExif(path string) error {
+// returns if file is a valid image, any error
+func printExif(path string) (bool, error) {
 	f, err := os.Open(path)
-	defer f.Close()
 	if err != nil {
 		log.Println(err)
-		return nil
+		return true, err
 	}
+	if !isImage(path) {
+		return false, nil
+	}
+	defer f.Close()
 	x, err := exif.Decode(f)
 	if err != nil {
 		// not an image or doesnt have exif data
 		// TODO logger warn or error
-		return err
+		if errors.Is(err, io.EOF) {
+			return true, err
+		}
+		log.Println(err)
+		return true, err
 	}
 	p := &printer{fname: path}
 	x.Walk(p)
-	return nil
+	return true, nil
+}
+
+func isImage(path string) bool {
+	f, err := os.Open(path)
+	if err != nil {
+		log.Println(err)
+		return true
+	}
+	defer f.Close()
+	buff := make([]byte, 512) // docs tell that it take only first 512 bytes into consideration
+	if _, err = f.Read(buff); err != nil {
+		fmt.Println(err) // do something with that error
+		return false
+	}
+	return strings.HasPrefix(http.DetectContentType(buff), "image/")
 }
 
 func mainx() {

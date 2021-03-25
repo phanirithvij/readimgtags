@@ -90,12 +90,13 @@ func walkDir(dir string) {
 			return nil
 		}
 		if f.Mode().IsRegular() {
-			// fmt.Printf("Visited: %s File name: %s Size: %d bytes\n",
-			// 	path, f.Name(), f.Size())
-			if err := printExif(path); err != nil {
-				failedFilesCounter.Add(1)
-			} else {
-				filesSizeCounter.Add(float64(f.Size()))
+			if validImg, err := printExif(path); validImg {
+				// only if a valid image
+				if err != nil {
+					failedFilesCounter.Add(1)
+				} else {
+					filesSizeCounter.Add(float64(f.Size()))
+				}
 			}
 		}
 		return nil
